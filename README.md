@@ -1,5 +1,18 @@
-# เกมส์ทายตัวเลข
-โจทย์ให้ดึงตัวเลขมีค่าตั้งแต่ 1000-9999 ผ่าน api ของเว็บ random.org
+# เกมส์ทายตัวเลข โดย Android
+1.โจทย์ให้สุ่มดึงตัวเลขที่มีค่าตั้งแต่ 1000-9999 ผ่าน api ของเว็บ random.org
+https://api.random.org/json-rpc/1/	
+  
+2.ให้กรอกตัวเลขและนำไปเทียบกับตัวเลขที่ดึงมา โดย
+
+2.1 ถ้าไม่เท่ากัน
+     
+- ให้แสดงว่าตัวเลขที่กรอกมาค่ามากกว่าหรือน้อยกว่าตัวเลขที่ดึงผ่าน api 
+	
+- จากนั้นให้กรอกตัวเลขอีกครั้งหนึ่ง
+	
+2.2 ถ้าเท่ากัน
+     
+- ให้แสดงผลว่าทายถูกต้อง และเริ่มตาใหม่โดยให้เริ่มจากข้อ 1 อีกครั้ง
 
 อธิบายขั้นตอนการพัฒนาโปรแกรม
 
@@ -52,7 +65,7 @@ Response
 
 ซึ่งผลลัพธ์การสุ่มเลขจะอยู่ใน data
 
-## 2. การเชื่อมต่อ HTTP
+## 2. สร้างการเชื่อมต่อ HTTP 
 
 ต้องขอ Permission ในการใช้อินเตอร์เน็ตก่อน
 
@@ -83,7 +96,126 @@ BASE_URL = https://api.random.org/json-rpc/1/
 
 ```
 
-## 3.
+## 3. สร้างการเชื่อมต่อเพื่อรับ Response จาก Server
+
+เราต้องทำการ set ค่าเพื่อทำการ Request ดังนี้
+
+```
+        NumberRequest.Params params = new NumberRequest.Params();
+        params.setApiKey(API_KEY);
+        params.setN(1);
+        params.setMin(1000);
+        params.setMax(9999);
+        params.setReplacement(true);
+
+        NumberRequest numberRequest = new NumberRequest();
+        numberRequest.setJsonrpc("2.0");
+        numberRequest.setMethod("generateIntegers");
+        numberRequest.setParams(params);
+        numberRequest.setId(42);
+
+	
+	initProgram(numberRequest);
+```
+
+ต่อมาทำการสร้าง retrofit class เพื่อใช้ในการติดต่อ
+
+```
+Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build();
+        service = retrofit.create(RandomNumberAPI.class);
+        Call<NumberResponse> call = service.createModelNumber(numberRequest);
+
+        
+```
+
+จากนั้นทำการ Request
+
+```
+call.enqueue(new Callback<NumberResponse>() {
+            @Override
+            public void onResponse(Call<NumberResponse> call, Response<NumberResponse> response) {
+                numberResponse = response.body();
+                dismissLoading();
+                textViewOutput.setText("Choose Your Number");
+            }
+
+            @Override
+            public void onFailure(Call<NumberResponse> call, Throwable t) {
+                Log.d("MyFail" , "Error");
+            }
+        });
+```
+
+enqueue() จะมี 2 methods คือ onResponse(), onFailure()
+
+โดยผลลัพธ์จะส่งมาที่ onResponse() และในส่วน onFailure() ถ้าทำงานไม่ผ่านจะเข้าที่ส่วนนี้
+
+ซึ่งสามารถเรียกค่าผลลัพธ์ใน onResponse() โดยเรียกได้ดังนี้
+
+ตัวอย่างโค้ด Json ตำแหน่งที่จะทำการดึงค่า
+```
+"result": { 
+	"random": {
+		"data": [
+			2229
+		]
+```
+
+การ Response ค่าที่ต้องการ
+
+```
+response.body().getResult().getRandom().getData().get(0);
+```
 
 
+## 4. สร้างเงื่อนไขการสุ่มตัวเลข
 
+โดยเมื่อสามารถดึงค่าตัวเลขสุ่มจาก API ได้แล้ว จากนั้นทำการกำหนดเงื่อนไขโดยเปรียบเทียบดังนี้
+    
+ถ้าไม่เท่ากัน
+     	
+- ให้แสดงว่าตัวเลขที่กรอกมาค่ามากกว่าหรือน้อยกว่าตัวเลขที่ดึงผ่าน api 
+
+- จากนั้นให้กรอกตัวเลขใหม่
+    
+ถ้าเท่ากัน
+
+- ให้แสดงผลว่าทายถูกต้อง และเริ่มตาใหม่โดย Request สุ่มตัวเลขใหม่จาก API และเริ่มการทายใหม่
+	
+แสดงโค้ดการเปรียบเทียบได้ดังนี้	
+```
+public class RandomNumber {
+
+        public String CompareRandomNumber(int myNumber, int randomNumber){
+            if(myNumber < randomNumber){
+                return "Your number is " + myNumber + " less than a random number";
+            }else if(myNumber > randomNumber){
+                return "Your number is " + myNumber + " greater than a random number";
+            }else {
+                return "Congratulations";
+            }
+        }
+}
+```
+
+## ภาพตัวอย่างเกมส์ทายตัวเลข
+1.เริ่มต้นโปรแกรม
+
+![Image](https://drive.google.com/uc?id=0B9xzpIJApeOlNGk4SUdTcDhCd3M)
+
+2.เมื่อตัวเลขที่ผู้ใช้กำหนดน้อยกว่าผลลัพธ์
+
+![Image](https://drive.google.com/uc?id=0B9xzpIJApeOlU2NoWXA5bUpraVk)
+
+3.เมื่อตัวเลขที่ผู้ใช้กำหนดมากกว่าผลลัพธ์
+
+![Image](https://drive.google.com/uc?id=0B9xzpIJApeOlZVBGQmxZQ3RDNFE)
+
+4.เมื่อตัวเลขที่ผู้ใช้กำหนดเท่ากับผลลัพธ์
+
+![Image](https://drive.google.com/uc?id=0B9xzpIJApeOlNGRnU1ExRVJZRGc)
+
+จบการอธิบายแล้ว ขอบคุณครับ
